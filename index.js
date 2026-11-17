@@ -28,6 +28,8 @@ const MODEL_SYSTEM = [
   'The user message is a JSON object with "to" (target language), "context" (the page title and',
   'opening text, for disambiguation) and "texts" (strings to translate).',
   'Translate every string into the target language. Use the page context to pick the right sense of',
+  'ambiguous words (for a geography article, "Bank (geography)" means 河岸, never 银行), and translate',
+  'parenthetical qualifiers with the term instead of dropping them.',
   'ambiguous words and to match the page domain vocabulary (for example film photography vs cinema).',
   'Keep markers like ⟦G0⟧ unchanged: they stand for glossary terms and are restored after translation.',
   'Preserve code, URLs, file paths, commands, versions and product names verbatim.',

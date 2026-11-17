@@ -2032,6 +2032,21 @@ window.__ModuleLoader__.load({
           const next = current === 'model' ? 'route' : current === 'route' ? 'bing' : 'model';
           writeEnginePreference(next);
           setEngine(next);
+          // Re-translate the page so the new engine actually takes effect;
+          // existing translations belong to the previous engine.
+          const view = findView(tab);
+          if (view === null || typeof view.executeJavaScript !== 'function') return;
+          void (async () => {
+            try {
+              const count = await translationCount(view);
+              if (count > 0) {
+                await pageExec(view, 'window.__dshPT && window.__dshPT.clear ? window.__dshPT.clear() : undefined');
+              }
+            } catch (_error) {
+              // A page that navigated away has nothing to re-translate.
+            }
+            startPage(ctx, t, view);
+          })();
         };
         return h(
           React.Fragment,
