@@ -2,6 +2,9 @@
 
 在 <https://github.com/dshplugin/dsh-plugin-hub/issues/new> 选择「插件提交」模板后粘贴以下内容。
 
+> **已提交**：<https://github.com/dshplugin/dsh-plugin-hub/issues/823>（2026-11-17，等待扫描/人工核实；
+> 收录后页面为 <https://dsh-plugin.org/zh/plugins/vacum972/dsh-page-translate>）
+
 标题：`[插件提交] vacum972/dsh-page-translate — 右侧边栏浏览器的沉浸式双语网页翻译`
 
 正文：
