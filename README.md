@@ -8,12 +8,13 @@
 适合读英文文档、GitHub README / Issue、新闻站点、技术博客——尤其是那些**正文长、导航多**的页面。
 
 <p align="center">
-  <img src="assets/screenshots/01-bilingual-google-news.png" width="860" alt="Google News 整页双语对照：原文保留，译文插在标题与段落下方">
+  <img src="assets/screenshots/01-bilingual-google-news.png" width="860" alt="Google News Technology 主题页的双语对照：英文标题下插入中文译文">
 </p>
 
-> 上图：Google News 翻译后的双语对照——短标题/标签同行追加（`Your briefing | 你的简报`），长段落另起一行
-> 带红色起始竖线；标签「…」菜单里依次是 **显示原文**、**本站自动翻译**、**翻译引擎（当前 Google 网页翻译）**
-> 与 **术语表（33 条）**，截图时正在翻译共 131 段。
+> 上图：Google News 的 Technology 主题页——分类标题 `Technology | 技术`、新闻标题与摘要都在原文下插入中文译文
+> （长标题另起一行带红色起始竖线，短标签如来源/署名同行追加）；标签「…」菜单里依次是 **显示原文**、
+> **本站自动翻译**、**翻译引擎（当前 Google 网页翻译，点击可循环切换主题感知/Google/Bing）**
+> 与 **术语表（33 条）**。
 
 ## 30 秒装上
 

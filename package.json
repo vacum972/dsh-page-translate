@@ -1,6 +1,6 @@
 {
   "name": "@vacum972/dsh-page-translate",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "DSH 右侧边栏浏览器里的沉浸式双语网页翻译：原文保留、译文插入其下，支持整站自动翻译、滚动续翻与引擎切换（Google / Bing）。",
   "type": "module",
   "license": "MIT",
