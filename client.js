@@ -61,6 +61,63 @@ window.__ModuleLoader__.load({
     /** Preferred translation engine: the Host route (model/Google chain) or Bing. */
     const ENGINE_KEY = 'dsh.page-translate.engine';
     const TRANSLATE_ROUTE = '/page-translate/translate';
+    const GLOSSARY_KEY = 'dsh.page-translate.glossary';
+    const GLOSSARY_OPEN = '\u27E6G';
+    const GLOSSARY_CLOSE = '\u27E7';
+    /** Terms that always use the same translation (technical docs first). */
+    const DEFAULT_GLOSSARY = {
+      'prompt': '提示词',
+      'prompts': '提示词',
+      'agent': '智能体',
+      'agents': '智能体',
+      'pull request': '拉取请求',
+      'pull requests': '拉取请求',
+      'issue': '议题',
+      'issues': '议题',
+      'commit': '提交',
+      'commits': '提交',
+      'repository': '仓库',
+      'repositories': '仓库',
+      'branch': '分支',
+      'branches': '分支',
+      'merge': '合并',
+      'fork': '复刻',
+      'deploy': '部署',
+      'deployment': '部署',
+      'model': '模型',
+      'models': '模型',
+      'plugin': '插件',
+      'plugins': '插件',
+      'bundle': '插件包',
+      'workflow': '工作流',
+      'session': '会话',
+      'token': 'Token',
+      'tokens': 'Token',
+      'deepseek': 'DeepSeek',
+      'github': 'GitHub',
+      'npm': 'npm',
+      'api': 'API',
+      'json': 'JSON',
+      'markdown': 'Markdown',
+    };
+    const GLOSSARY_CSS = [
+      '.pt-modal-backdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;',
+      'z-index:2147483000;background:rgba(0,0,0,.45)}',
+      '.pt-modal-card{width:min(560px,92vw);max-height:86vh;overflow:auto;display:flex;flex-direction:column;gap:10px;',
+      'padding:16px;border-radius:12px;background:var(--dsw-alias-bg-elevated,#1f2024);',
+      'color:var(--dsw-alias-label-primary,#f5f6f8);box-shadow:0 12px 40px rgba(0,0,0,.45);',
+      'font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}',
+      '.pt-modal-title{margin:0;font-size:15px;font-weight:600}',
+      '.pt-modal-hint{margin:0;font-size:12px;color:var(--dsw-alias-label-secondary,#a8adb8)}',
+      '.pt-modal-text{width:100%;min-height:280px;box-sizing:border-box;padding:8px 10px;resize:vertical;',
+      'border:1px solid var(--dsw-alias-border-l1,#3a3d44);border-radius:8px;',
+      'background:var(--dsw-alias-bg-base,#111316);color:inherit;font:12px/1.6 ui-monospace,Consolas,monospace}',
+      '.pt-modal-actions{display:flex;gap:8px;justify-content:flex-end}',
+      '.pt-modal-button{min-height:28px;padding:4px 12px;border-radius:6px;cursor:pointer;font:inherit;',
+      'border:1px solid var(--dsw-alias-border-l1,#3a3d44);background:transparent;color:inherit}',
+      '.pt-modal-button:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.08))}',
+      '.pt-modal-primary{background:#2f6fed;border-color:#2f6fed;color:#fff}',
+    ].join('');
     let enginePreference = readEnginePreference();
     /** Session id of the Chat the menu was opened from; enables the paid route. */
     let activeSessionId = null;
@@ -86,6 +143,14 @@ window.__ModuleLoader__.load({
       'engine.route': '翻译引擎：模型优先（DeepSeek/Google）',
       'engine.bing': '翻译引擎：Bing 直连',
       'engine.a11y': '切换翻译引擎',
+      'glossary.row': '术语表：{count} 条',
+      'glossary.a11y': '编辑翻译术语表',
+      'glossary.title': '翻译术语表',
+      'glossary.hint': '每行一条，格式：英文 = 中文。保存后对新翻译生效；已翻的内容需重新翻译。',
+      'glossary.save': '保存',
+      'glossary.reset': '恢复内置',
+      'glossary.cancel': '取消',
+      'selection.failed': '翻译失败',
     };
 
     const en = {
@@ -109,6 +174,14 @@ window.__ModuleLoader__.load({
       'engine.route': 'Engine: model first (DeepSeek/Google)',
       'engine.bing': 'Engine: Bing direct',
       'engine.a11y': 'Switch translation engine',
+      'glossary.row': 'Glossary: {count} terms',
+      'glossary.a11y': 'Edit the translation glossary',
+      'glossary.title': 'Translation glossary',
+      'glossary.hint': 'One term per line: source = translation. Applies to new translations; re-translate to update the page.',
+      'glossary.save': 'Save',
+      'glossary.reset': 'Reset to built-in',
+      'glossary.cancel': 'Cancel',
+      'selection.failed': 'Translation failed',
     };
 
     /** Style for the tab-menu row; matches the kit's menu rows. */
@@ -147,7 +220,7 @@ window.__ModuleLoader__.load({
      * own inline style changed, so the surrounding layout can never be altered.
      */
     function pageTranslateInstall() {
-      if (window.__dshPT && window.__dshPT.version === 23) return 'present';
+      if (window.__dshPT && window.__dshPT.version === 24) return 'present';
       var STYLE_ATTR = 'data-dsh-pt-style';
       var OVERLAY_ATTR = 'data-dsh-pt-overlay';
       var TRANS_ATTR = 'data-dsh-pt-trans';
@@ -155,6 +228,9 @@ window.__ModuleLoader__.load({
       var HASH_ATTR = 'data-dsh-pt-hash';
       var RUN_ATTR = 'data-dsh-pt-run';
       var DONE_ATTR = 'data-dsh-pt-done';
+      var SEL_BTN_ATTR = 'data-dsh-pt-select-btn';
+      var SEL_CARD_ATTR = 'data-dsh-pt-select-card';
+      var SEL_CARD_ID = 'data-dsh-pt-select-id';
       var TRANS_SELECTOR = '[' + TRANS_ATTR + ']';
       var currentRun = '';
       var dirtyFlag = false;
@@ -167,6 +243,16 @@ window.__ModuleLoader__.load({
         '.dsh-pt-inline{display:inline;margin-left:.35em;padding-left:.35em;',
         'border-left:2px solid #e5484d;text-decoration:none;font:inherit;font-size:.95em;',
         'color:inherit;white-space:normal}',
+        '.dsh-pt-select-btn{position:fixed;z-index:2147483646;width:28px;height:28px;padding:0;border:0;',
+        'border-radius:8px;background:#e5484d;color:#fff;text-align:center;cursor:pointer;',
+        'font:13px/28px system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.35)}',
+        '.dsh-pt-select-card{position:fixed;z-index:2147483646;max-width:340px;padding:10px 26px 10px 12px;',
+        'border-radius:10px;background:rgba(24,26,30,.97);color:#f5f6f8;box-shadow:0 8px 24px rgba(0,0,0,.45);',
+        'font:12px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:normal}',
+        '.dsh-pt-select-source{opacity:.6;margin-bottom:6px;word-break:break-word}',
+        '.dsh-pt-select-translation{font-size:14px;border-left:2px solid #e5484d;padding-left:8px;word-break:break-word}',
+        '.dsh-pt-select-close{position:absolute;top:2px;right:6px;border:0;background:transparent;color:inherit;',
+        'opacity:.6;cursor:pointer;font-size:14px;line-height:1.2}',
       ].join('');
 
       function ensureStyle() {
@@ -281,13 +367,177 @@ window.__ModuleLoader__.load({
       });
       observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
+      var selectionButton = null;
+      var selectionCard = null;
+      var selectionRequest = null;
+      var selectionAnchor = null;
+
+      function hideSelectionButton() {
+        remove(selectionButton);
+        selectionButton = null;
+      }
+
+      function hideSelectionCard() {
+        remove(selectionCard);
+        selectionCard = null;
+        selectionAnchor = null;
+      }
+
+      function placeSelectionButton() {
+        var selection = window.getSelection();
+        if (selection === null || selection.isCollapsed || selection.rangeCount === 0) {
+          hideSelectionButton();
+          return;
+        }
+        var text = String(selection.toString() || '').trim();
+        if (text.length < 2 || text.length > 600) {
+          hideSelectionButton();
+          return;
+        }
+        var rect = selection.getRangeAt(0).getBoundingClientRect();
+        if (rect.width < 2 || rect.height < 2) {
+          hideSelectionButton();
+          return;
+        }
+        selectionAnchor = { top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right };
+        if (selectionButton === null) {
+          selectionButton = document.createElement('button');
+          selectionButton.type = 'button';
+          selectionButton.setAttribute(SEL_BTN_ATTR, '1');
+          selectionButton.className = 'dsh-pt-select-btn';
+          selectionButton.textContent = '\u8bd1';
+          selectionButton.addEventListener('mousedown', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+          }, true);
+          selectionButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var selected = window.getSelection();
+            var value = selected === null ? '' : String(selected.toString() || '').trim();
+            if (value === '') return;
+            selectionRequest = { id: 's' + Date.now().toString(36), text: value };
+            hideSelectionButton();
+            hideSelectionCard();
+          }, true);
+          document.documentElement.appendChild(selectionButton);
+        }
+        selectionButton.style.top = String(Math.max(8, rect.top - 34)) + 'px';
+        selectionButton.style.left = String(Math.min(window.innerWidth - 44, Math.max(8, rect.left + rect.width / 2 - 14))) + 'px';
+      }
+
+      function onDocumentMouseUp(event) {
+        var target = event !== null && event.target !== null && event.target.nodeType === 1 ? event.target : null;
+        if (target !== null && target.closest !== undefined
+          && target.closest('[' + SEL_BTN_ATTR + '],[' + SEL_CARD_ATTR + '],[' + OVERLAY_ATTR + ']') !== null) {
+          return;
+        }
+        setTimeout(placeSelectionButton, 10);
+      }
+
+      function onDocumentKeyUp(event) {
+        if (event === null) return;
+        if (event.key === 'Escape') {
+          hideSelectionButton();
+          hideSelectionCard();
+          return;
+        }
+        if (event.key === 'Shift' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          setTimeout(placeSelectionButton, 10);
+        }
+      }
+
+      document.addEventListener('mouseup', onDocumentMouseUp, true);
+      document.addEventListener('keyup', onDocumentKeyUp, true);
+      window.addEventListener('scroll', hideSelectionButton, true);
+
       window.__dshPT = {
-        version: 23,
+        version: 24,
         __observer: observer,
         dirty: function () {
           var value = dirtyFlag;
           dirtyFlag = false;
           return value;
+        },
+        takeSelection: function () {
+          var pending = selectionRequest;
+          selectionRequest = null;
+          return pending;
+        },
+        showSelection: function (id, translated, source) {
+          hideSelectionCard();
+          var anchor = selectionAnchor || { top: 80, left: 80, bottom: 80, right: 80 };
+          var card = document.createElement('div');
+          card.setAttribute(SEL_CARD_ATTR, '1');
+          card.setAttribute(SEL_CARD_ID, String(id));
+          card.className = 'dsh-pt-select-card';
+          var sourceNode = document.createElement('div');
+          sourceNode.className = 'dsh-pt-select-source';
+          sourceNode.textContent = String(source || '');
+          var translationNode = document.createElement('div');
+          translationNode.className = 'dsh-pt-select-translation';
+          translationNode.textContent = String(translated || '');
+          var closeButton = document.createElement('button');
+          closeButton.type = 'button';
+          closeButton.className = 'dsh-pt-select-close';
+          closeButton.textContent = '\u00d7';
+          closeButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            hideSelectionCard();
+          }, true);
+          card.appendChild(sourceNode);
+          card.appendChild(translationNode);
+          card.appendChild(closeButton);
+          document.documentElement.appendChild(card);
+          var width = card.offsetWidth || 260;
+          var height = card.offsetHeight || 90;
+          var top = anchor.bottom + 10;
+          if (top + height > window.innerHeight - 8) top = Math.max(8, anchor.top - height - 10);
+          var left = Math.min(window.innerWidth - width - 12, Math.max(12, anchor.left));
+          card.style.top = String(top) + 'px';
+          card.style.left = String(left) + 'px';
+          selectionCard = card;
+        },
+        takeSelection: function () {
+          var pending = selectionRequest;
+          selectionRequest = null;
+          return pending;
+        },
+        showSelection: function (id, translated, source) {
+          hideSelectionCard();
+          var anchor = selectionAnchor || { top: 80, left: 80, bottom: 80, right: 80 };
+          var card = document.createElement('div');
+          card.setAttribute(SEL_CARD_ATTR, '1');
+          card.setAttribute(SEL_CARD_ID, String(id));
+          card.className = 'dsh-pt-select-card';
+          var sourceNode = document.createElement('div');
+          sourceNode.className = 'dsh-pt-select-source';
+          sourceNode.textContent = String(source || '');
+          var translationNode = document.createElement('div');
+          translationNode.className = 'dsh-pt-select-translation';
+          translationNode.textContent = String(translated || '');
+          var closeButton = document.createElement('button');
+          closeButton.type = 'button';
+          closeButton.className = 'dsh-pt-select-close';
+          closeButton.textContent = '\u00d7';
+          closeButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            hideSelectionCard();
+          }, true);
+          card.appendChild(sourceNode);
+          card.appendChild(translationNode);
+          card.appendChild(closeButton);
+          document.documentElement.appendChild(card);
+          var width = card.offsetWidth || 260;
+          var height = card.offsetHeight || 90;
+          var top = anchor.bottom + 10;
+          if (top + height > window.innerHeight - 8) top = Math.max(8, anchor.top - height - 10);
+          var left = Math.min(window.innerWidth - width - 12, Math.max(12, anchor.left));
+          card.style.top = String(top) + 'px';
+          card.style.left = String(left) + 'px';
+          selectionCard = card;
         },
         begin: function (run) {
           currentRun = String(run);
@@ -315,6 +565,9 @@ window.__ModuleLoader__.load({
           remove(document.querySelector('[' + OVERLAY_ATTR + ']'));
         },
         clear: function () {
+          hideSelectionButton();
+          hideSelectionCard();
+          selectionRequest = null;
           var translations = document.querySelectorAll(TRANS_SELECTOR);
           for (var i = translations.length - 1; i >= 0; i -= 1) remove(translations[i]);
           var done = document.querySelectorAll('[' + DONE_ATTR + ']');
@@ -791,6 +1044,101 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** Merged glossary: built-in defaults overridden by the user's own terms. */
+    let glossaryCache = null;
+    let glossaryCacheSignature = 'builtin';
+
+    function readGlossary() {
+      if (glossaryCache !== null) return glossaryCache;
+      const merged = Object.assign({}, DEFAULT_GLOSSARY);
+      try {
+        const raw = window.localStorage.getItem(GLOSSARY_KEY);
+        if (raw !== null) {
+          const parsed = JSON.parse(raw);
+          if (parsed !== null && typeof parsed === 'object') {
+            for (const term of Object.keys(parsed)) {
+              if (typeof parsed[term] === 'string' && parsed[term] !== '') merged[term] = parsed[term];
+            }
+          }
+        }
+      } catch (_error) {
+        // A broken user glossary falls back to the built-in terms.
+      }
+      glossaryCache = merged;
+      glossaryCacheSignature = hashString(JSON.stringify(merged));
+      return merged;
+    }
+
+    function hashString(text) {
+      let hash = 5381;
+      for (let index = 0; index < text.length; index += 1) {
+        hash = ((hash << 5) + hash + text.charCodeAt(index)) >>> 0;
+      }
+      return hash.toString(36);
+    }
+
+    function writeGlossary(next) {
+      try {
+        window.localStorage.setItem(GLOSSARY_KEY, JSON.stringify(next));
+      } catch (_error) {
+        // Storage can be unavailable; the glossary then applies for this run.
+      }
+      glossaryCache = null;
+    }
+
+    function resetGlossary() {
+      try {
+        window.localStorage.removeItem(GLOSSARY_KEY);
+      } catch (_error) {
+        // Ignore an unavailable storage.
+      }
+      glossaryCache = null;
+    }
+
+    /** Key for the shared translation memory, including the glossary version. */
+    function memoryKey(targetLanguage, text) {
+      readGlossary();
+      return targetLanguage + '\u0000' + glossaryCacheSignature + '\u0000' + text;
+    }
+
+    /** Replace glossary terms with opaque markers the engine passes through. */
+    function maskGlossary(text, glossary) {
+      const terms = Object.keys(glossary).sort((left, right) => right.length - left.length);
+      const tokens = [];
+      let output = text;
+      for (const term of terms) {
+        if (term === '') continue;
+        const escaped = term.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
+        let pattern;
+        try {
+          pattern = new RegExp('(?<![A-Za-z0-9_])' + escaped + '(?![A-Za-z0-9_])', 'gi');
+        } catch (_error) {
+          continue;
+        }
+        output = output.replace(pattern, () => {
+          const index = tokens.length;
+          tokens.push(glossary[term]);
+          return GLOSSARY_OPEN + index + GLOSSARY_CLOSE;
+        });
+      }
+      return { text: output, tokens };
+    }
+
+    /** Put the glossary translations back where the markers are. */
+    function unmaskGlossary(text, tokens) {
+      const pattern = new RegExp(GLOSSARY_OPEN + '(\\d+)' + GLOSSARY_CLOSE, 'g');
+      return text.replace(pattern, (matched, digits) => {
+        const index = Number(digits);
+        return tokens[index] === undefined ? matched : tokens[index];
+      });
+    }
+
+    function markersIntact(source, result) {
+      const count = (source.match(new RegExp(GLOSSARY_OPEN, 'g')) || []).length;
+      if (count === 0) return true;
+      return (result.match(new RegExp(GLOSSARY_OPEN, 'g')) || []).length >= count;
+    }
+
     /** Translate through the Host route (DeepSeek / Google / Bing chain). */
     async function translateViaRoute(texts, targetLanguage, signal) {
       if (texts.length === 0) return [];
@@ -824,9 +1172,18 @@ window.__ModuleLoader__.load({
     /** Translate a batch with the selected engine, falling back to Bing. */
     async function translateTexts(texts, targetLanguage, signal) {
       if (texts.length === 0) return [];
+      const glossary = String(targetLanguage).toLowerCase().indexOf('zh') === 0 ? readGlossary() : null;
+      const hasGlossary = glossary !== null && Object.keys(glossary).length > 0;
+      const masked = hasGlossary ? texts.map((text) => maskGlossary(text, glossary)) : null;
+      const requestTexts = masked === null ? texts : masked.map((item) => item.text);
       if (enginePreference !== 'bing') {
-        const routed = await translateViaRoute(texts, targetLanguage, signal);
-        if (routed !== null) return routed;
+        const routed = await translateViaRoute(requestTexts, targetLanguage, signal);
+        if (routed !== null) {
+          if (masked === null) return routed;
+          const intact = routed.every((result, index) => typeof result !== 'string' || result === '' || markersIntact(requestTexts[index], result));
+          if (intact) return routed.map((result, index) => (typeof result === 'string' ? unmaskGlossary(result, masked[index].tokens) : result));
+          // The engine dropped the markers: retry this batch without masking.
+        }
       }
       return translateBatch(texts, targetLanguage, signal);
     }
@@ -1037,7 +1394,7 @@ window.__ModuleLoader__.load({
       };
 
       const translateOne = async (block) => {
-        const key = targetLanguage + '\u0000' + block.text;
+        const key = memoryKey(targetLanguage, block.text);
         const cached = memory.get(key);
         if (cached !== undefined) return { block, text: cached };
         let text = '';
@@ -1059,7 +1416,7 @@ window.__ModuleLoader__.load({
         const missing = [];
         const ready = new Map();
         for (const block of batch) {
-          const cached = memory.get(targetLanguage + '\u0000' + block.text);
+          const cached = memory.get(memoryKey(targetLanguage, block.text));
           if (cached !== undefined) ready.set(block.id, cached);
           else missing.push(block);
         }
@@ -1085,7 +1442,7 @@ window.__ModuleLoader__.load({
           const block = missing[index];
           const text = typeof results[index] === 'string' ? results[index] : '';
           if (text !== '') {
-            const key = targetLanguage + '\u0000' + block.text;
+            const key = memoryKey(targetLanguage, block.text);
             if (memory.size >= CACHE_LIMIT) memory.delete(memory.keys().next().value);
             memory.set(key, text);
           }
@@ -1176,14 +1533,35 @@ window.__ModuleLoader__.load({
       const state = liveLoops.get(view);
       if (state === undefined) return;
       window.clearInterval(state.timer);
+      if (state.selectionTimer !== null && state.selectionTimer !== undefined) {
+        window.clearInterval(state.selectionTimer);
+      }
       liveLoops.delete(view);
     }
 
     /** Translate content that appeared after the initial pass, once per second. */
     function startLive(ctx, t, view) {
       if (liveLoops.has(view)) return;
-      const state = { timer: null };
+      const state = { timer: null, selectionTimer: null };
       liveLoops.set(view, state);
+      // Selection translation: the page exposes the pending selection and the
+      // Client answers with a small card next to it.
+      state.selectionTimer = window.setInterval(() => {
+        if (!liveLoops.has(view) || activeRuns.has(view) || backgroundViews.has(view)) return;
+        let probe;
+        try {
+          probe = pageExec(view, 'window.__dshPT && typeof window.__dshPT.takeSelection === "function" ? window.__dshPT.takeSelection() : null');
+        } catch (_error) {
+          stopLive(view);
+          return;
+        }
+        probe.then((pending) => {
+          if (pending === null || typeof pending !== 'object') return;
+          if (typeof pending.text !== 'string' || pending.text === '') return;
+          if (!liveLoops.has(view)) return;
+          void translateSelection(ctx, t, view, pending);
+        }).catch(() => {});
+      }, 600);
       state.timer = window.setInterval(() => {
         if (!liveLoops.has(view)) return;
         if (activeRuns.has(view) || backgroundViews.has(view)) return;
@@ -1200,6 +1578,23 @@ window.__ModuleLoader__.load({
           void translateIncremental(ctx, t, view);
         }).catch(() => {});
       }, 1200);
+    }
+
+    /** Translate one selected snippet and show it in a card near the selection. */
+    async function translateSelection(ctx, t, view, pending) {
+      try {
+        const targetLanguage = uiLanguage(ctx);
+        const results = await translateTexts([pending.text], targetLanguage, new AbortController().signal);
+        const translated = Array.isArray(results) && typeof results[0] === 'string' && results[0] !== ''
+          ? results[0]
+          : t('selection.failed');
+        await pageExec(view, 'window.__dshPT && window.__dshPT.showSelection('
+          + JSON.stringify(String(pending.id)) + ','
+          + JSON.stringify(translated) + ','
+          + JSON.stringify(pending.text) + ')');
+      } catch (_error) {
+        // Selection translation is best effort.
+      }
     }
 
     /** One incremental pass over whatever the page added since the last pass. */
@@ -1228,7 +1623,7 @@ window.__ModuleLoader__.load({
           const items = [];
           const missing = [];
           for (const block of batch) {
-            const key = targetLanguage + '\u0000' + block.text;
+            const key = memoryKey(targetLanguage, block.text);
             const cached = memory.get(key);
             if (cached !== undefined) items.push({ id: block.id, text: cached, hash: block.hash, run: runId, inline: block.inline === true });
             else missing.push(block);
@@ -1239,7 +1634,7 @@ window.__ModuleLoader__.load({
               for (let index = 0; index < missing.length; index += 1) {
                 const text = typeof translated[index] === 'string' ? translated[index] : '';
                 if (text === '') continue;
-                const key = targetLanguage + '\u0000' + missing[index].text;
+                const key = memoryKey(targetLanguage, missing[index].text);
                 if (memory.size >= CACHE_LIMIT) memory.delete(memory.keys().next().value);
                 memory.set(key, text);
                 items.push({ id: missing[index].id, text, hash: missing[index].hash, run: runId, inline: missing[index].inline === true });
@@ -1582,6 +1977,144 @@ window.__ModuleLoader__.load({
       };
     }
 
+    /** Modal state bus: the menu row opens the overlay editor. */
+    const glossaryListeners = new Set();
+
+    function openGlossaryEditor() {
+      for (const listener of glossaryListeners) {
+        try {
+          listener();
+        } catch (_error) {
+          // Keep the remaining listeners working.
+        }
+      }
+    }
+
+    /** Serialize the glossary for the editor textarea. */
+    function formatGlossary(map) {
+      return Object.keys(map).sort().map((term) => term + ' = ' + map[term]).join('\n');
+    }
+
+    /** Parse the editor textarea back into a glossary map. */
+    function parseGlossary(text) {
+      const map = {};
+      for (const line of String(text).split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed.startsWith('#')) continue;
+        const split = trimmed.indexOf('=');
+        if (split <= 0) continue;
+        const term = trimmed.slice(0, split).trim();
+        const value = trimmed.slice(split + 1).trim();
+        if (term !== '' && value !== '') map[term] = value;
+      }
+      return map;
+    }
+
+    /** The glossary editor row in the tab menu. */
+    function createGlossaryMenuItem(ctx, t) {
+      return function PageTranslateGlossaryMenuItem(props) {
+        const tab = props !== null && typeof props === 'object' ? props.tab : undefined;
+        const isBrowser = tab !== undefined && tab !== null && tab.kind === BROWSER_KIND;
+        const translate = typeof props.t === 'function' ? props.t : t;
+        const [count, setCount] = React.useState(0);
+        React.useEffect(() => {
+          if (!isBrowser) return;
+          setCount(Object.keys(readGlossary()).length);
+          const listener = () => setCount(Object.keys(readGlossary()).length);
+          glossaryListeners.add(listener);
+          return () => {
+            glossaryListeners.delete(listener);
+          };
+        }, [isBrowser]);
+        if (!isBrowser) return null;
+        const label = translate('glossary.row', { count: String(count) });
+        return h(
+          React.Fragment,
+          null,
+          h('style', { key: 'page-translate-glossary-style', 'data-page-translate-style': true }, MENU_CSS),
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'menuitem',
+              className: 'pt-menu-item',
+              'aria-label': translate('glossary.a11y'),
+              title: translate('glossary.a11y'),
+              onClick: () => {
+                if (typeof props.dismiss === 'function') props.dismiss();
+                openGlossaryEditor();
+              },
+            },
+            translateGlyph('pt-icon'),
+            h('span', { key: 'label' }, label),
+          ),
+        );
+      };
+    }
+
+    /** The glossary editor overlay, opened from the tab menu row. */
+    function createGlossaryEditor(ctx, t) {
+      return function PageTranslateGlossaryEditor(props) {
+        const translate = typeof props.t === 'function' ? props.t : t;
+        const [open, setOpen] = React.useState(false);
+        const [draft, setDraft] = React.useState('');
+        React.useEffect(() => {
+          const listener = () => {
+            setDraft(formatGlossary(readGlossary()));
+            setOpen(true);
+          };
+          glossaryListeners.add(listener);
+          return () => {
+            glossaryListeners.delete(listener);
+          };
+        }, []);
+        if (!open) return null;
+        const close = () => setOpen(false);
+        const save = () => {
+          writeGlossary(parseGlossary(draft));
+          setOpen(false);
+        };
+        const reset = () => {
+          resetGlossary();
+          setDraft(formatGlossary(readGlossary()));
+        };
+        return h(
+          React.Fragment,
+          null,
+          h('style', { key: 'page-translate-glossary-css', 'data-page-translate-style': true }, GLOSSARY_CSS),
+          h(
+            'div',
+            { className: 'pt-modal-backdrop', style: { pointerEvents: 'auto' }, onClick: close },
+            h(
+              'div',
+              {
+                className: 'pt-modal-card',
+                role: 'dialog',
+                'aria-modal': 'true',
+                'aria-label': translate('glossary.title'),
+                onClick: (event) => event.stopPropagation(),
+              },
+              h('h2', { className: 'pt-modal-title' }, translate('glossary.title')),
+              h('p', { className: 'pt-modal-hint' }, translate('glossary.hint')),
+              h('textarea', {
+                className: 'pt-modal-text',
+                value: draft,
+                spellCheck: false,
+                onChange: (event) => setDraft(event.target.value),
+              }),
+              h(
+                'div',
+                { className: 'pt-modal-actions' },
+                h('button', { type: 'button', className: 'pt-modal-button', onClick: reset }, translate('glossary.reset')),
+                h('button', { type: 'button', className: 'pt-modal-button pt-modal-primary', onClick: save }, translate('glossary.save')),
+                h('button', { type: 'button', className: 'pt-modal-button', onClick: close }, translate('glossary.cancel')),
+              ),
+            ),
+          ),
+        );
+      };
+    }
+
     /** Inline glyph shared by the menu row and the launcher. */
     function translateGlyph(className) {
       return h(
@@ -1805,12 +2338,24 @@ window.__ModuleLoader__.load({
           order: 62,
           locale: NS,
         }, createEngineMenuItem(ctx, t)));
+        ctx.slots.inject('sidebar.right.tab.menu.item', () => ctx.slots.register({
+          name: 'sidebar.right.tab.menu.item',
+          id: 'page-translate-glossary',
+          order: 63,
+          locale: NS,
+        }, createGlossaryMenuItem(ctx, t)));
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
           id: 'page-translate-launcher',
           order: 40,
           locale: NS,
         }, createLauncher(ctx, t)));
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'page-translate-glossary-editor',
+          order: 41,
+          locale: NS,
+        }, createGlossaryEditor(ctx, t)));
         ctx.effect(() => {
           const timer = window.setInterval(() => ensureAutoListeners(ctx, t), 1500);
           ensureAutoListeners(ctx, t);

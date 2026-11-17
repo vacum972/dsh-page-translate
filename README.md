@@ -49,6 +49,20 @@ Desktop 用户也可以在 DSH 的「插件中心」搜索 `@vacum972/dsh-page-t
 
 两个引擎都**不花钱、不需要 API Key**（是网页匿名接口，不是付费 API）。
 
+### 术语表
+
+术语表保证专有名词译法一致：`prompt` → 提示词、`agent` → 智能体、`pull request` → 拉取请求、
+`issue` → 议题、`commit` → 提交，品牌名（DeepSeek、GitHub、npm、Markdown...）保持英文。
+内置了一套技术文档常用词；标签页「…」菜单里的 **术语表** 行会打开编辑器（每行 `原文 = 译法`），
+可以增删改。实现上先把术语替换成机翻不会动的占位符 `⟦G0⟧`，翻译后再还原成你指定的译法，
+所以引擎既看不到、也不会翻错这些词。术语表按浏览器 profile 存在
+`localStorage`（`dsh.page-translate.glossary`），并且参与翻译缓存 key——改完重新翻译即生效。
+
+### 划词翻译
+
+在已翻译的页面上选中 2~600 个字符，选区旁会出现红色 **译** 按钮；点一下弹出卡片显示
+原文与译文，点 ×、按 Esc 或下次选择时关闭。划词翻译不修改页面内容，只做浮层展示。
+
 ## 为什么它不太会「翻坏页面」
 
 插入策略刻意保守——宁可少翻，也不破坏布局：
@@ -67,6 +81,7 @@ Desktop 用户也可以在 DSH 的「插件中心」搜索 `@vacum972/dsh-page-t
 - **Google 路线**：客户端把文本发给插件自己的 Host 路由 `/page-translate/translate`，
   由 Host 代理 Google 网页翻译接口（`translate.googleapis.com`，非付费 API），最多 4 路并发；
 - **Bing 路线**：渲染进程直接请求 `edge.microsoft.com` 的匿名接口；
+- **术语表占位符**只用于在引擎侧保护术语，不会额外发送你的术语表内容到第三方；
 - 页面文本只发送到上述翻译服务，**不写进 DSH 会话日志**，不保存、不上传 API Key；
 - Host 路由只挂在 DSH 本机 Web 服务上（默认仅回环监听），不对局域网开放。
 
@@ -75,6 +90,7 @@ Desktop 用户也可以在 DSH 的「插件中心」搜索 `@vacum972/dsh-page-t
 - **仅 Desktop**：右侧浏览器在桌面端是 Electron `<webview>`；Web profile 里是跨域 `<iframe>`，
   插件无法注入，菜单会显示「当前页面无法翻译」；
 - 只翻译当前文档的顶层块：跨域 iframe、canvas/PDF、图片里的文字不处理；
+- 划词翻译与滚动续翻需要页面已经翻译过（插件脚本注入后才有划词按钮）；
 - 免费匿名接口没有服务保障，可能限流或失效；失效时另一个引擎会自动兜底；
 - 站点结构千差万别，保守规则会**故意跳过**一部分内容（多链接卡片、按钮、下拉菜单等），
   这是为了「不丢内容、不跑版」的取舍；遇到漏翻可以提 Issue 附截图；
@@ -88,7 +104,7 @@ Desktop 用户也可以在 DSH 的「插件中心」搜索 `@vacum972/dsh-page-t
 
 ```
 index.js             Host 半体：/page-translate/translate 路由（Google 代理 + Harness 翻译兜底）
-client.js            Client 半体：面板按钮、标签菜单行、页面采集/注入、自动翻译与续翻、引擎切换
+client.js            Client 半体：面板按钮、标签菜单行、页面采集/注入、自动翻译与续翻、引擎切换、术语表、划词翻译
 cordis.patch.yml     bundle 补丁：插入 page-translate 行
 locale/zh.json       插件管理页标题与描述（中文）
 locale/en.json       同上（英文）
