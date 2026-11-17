@@ -131,7 +131,10 @@ window.__ModuleLoader__.load({
       'launcher.restore': '显示原文（移除译文）',
       'status.preparing': '正在识别页面段落…',
       'status.translating': '正在翻译 {done}/{total}',
-      'status.done': '已翻译 {count} 段',
+      'status.done': '已翻译 {count} 段（{engine}）',
+      'engineName.model': '主题感知',
+      'engineName.route': 'Google',
+      'engineName.bing': 'Bing',
       'status.partial': '翻译完成，{failed}/{total} 段失败',
       'status.empty': '没有找到可翻译的文本',
       'status.failed': '翻译失败：{reason}',
@@ -163,7 +166,10 @@ window.__ModuleLoader__.load({
       'launcher.restore': 'Show original (remove translations)',
       'status.preparing': 'Scanning page blocks…',
       'status.translating': 'Translating {done}/{total}',
-      'status.done': 'Translated {count} blocks',
+      'status.done': 'Translated {count} blocks ({engine})',
+      'engineName.model': 'context-aware',
+      'engineName.route': 'Google',
+      'engineName.bing': 'Bing',
       'status.partial': 'Translated with {failed}/{total} failures',
       'status.empty': 'No translatable text found',
       'status.failed': 'Translation failed: {reason}',
@@ -223,7 +229,7 @@ window.__ModuleLoader__.load({
      * own inline style changed, so the surrounding layout can never be altered.
      */
     function pageTranslateInstall() {
-      if (window.__dshPT && window.__dshPT.version === 24) return 'present';
+      if (window.__dshPT && window.__dshPT.version === 25) return 'present';
       var STYLE_ATTR = 'data-dsh-pt-style';
       var OVERLAY_ATTR = 'data-dsh-pt-overlay';
       var TRANS_ATTR = 'data-dsh-pt-trans';
@@ -455,7 +461,7 @@ window.__ModuleLoader__.load({
       window.addEventListener('scroll', hideSelectionButton, true);
 
       window.__dshPT = {
-        version: 24,
+        version: 25,
         __observer: observer,
         dirty: function () {
           var value = dirtyFlag;
@@ -542,8 +548,12 @@ window.__ModuleLoader__.load({
           card.style.left = String(left) + 'px';
           selectionCard = card;
         },
-        begin: function (run) {
+        begin: function (run, reset) {
           currentRun = String(run);
+          if (reset === true) {
+            var done = document.querySelectorAll('[' + DONE_ATTR + ']');
+            for (var d = 0; d < done.length; d += 1) done[d].removeAttribute(DONE_ATTR);
+          }
           // Drop marks left by an earlier run; they must not hide elements from
           // this run's collection.
           var stale = document.querySelectorAll('[' + MARK_ATTR + ']');
@@ -1234,7 +1244,7 @@ window.__ModuleLoader__.load({
     }
 
     /** Translate a batch with the selected engine, falling back to Bing. */
-    async function translateTexts(texts, targetLanguage, signal, view) {
+    async function translateTexts(texts, targetLanguage, signal, view, stats) {
       if (texts.length === 0) return [];
       const glossary = String(targetLanguage).toLowerCase().indexOf('zh') === 0 ? readGlossary() : null;
       const hasGlossary = glossary !== null && Object.keys(glossary).length > 0;
@@ -1249,13 +1259,21 @@ window.__ModuleLoader__.load({
       };
       if (enginePreference === 'model') {
         const modeled = finish(await translateViaModel(requestTexts, targetLanguage, signal, view));
-        if (modeled !== null) return modeled;
+        if (modeled !== null) {
+          if (stats !== undefined && stats !== null) stats.engine = 'model';
+          return modeled;
+        }
       }
       if (enginePreference !== 'bing') {
         const routed = finish(await translateViaRoute(requestTexts, targetLanguage, signal));
-        if (routed !== null) return routed;
+        if (routed !== null) {
+          if (stats !== undefined && stats !== null) stats.engine = 'route';
+          return routed;
+        }
       }
-      return translateBatch(texts, targetLanguage, signal);
+      const fallback = await translateBatch(texts, targetLanguage, signal);
+      if (stats !== undefined && stats !== null) stats.engine = 'bing';
+      return fallback;
     }
 
     /** Group blocks into endpoint-sized batches. */
@@ -1382,7 +1400,8 @@ window.__ModuleLoader__.load({
       // translation can only land on the element whose text it actually
       // translates, even if the site re-renders its list in between.
       const runId = 'r' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
-      await pageExec(view, 'window.__dshPT.begin(' + JSON.stringify(runId) + ')');
+      const runStats = { engine: '' };
+      await pageExec(view, 'window.__dshPT.begin(' + JSON.stringify(runId) + ', true)');
 
       const targetLanguage = uiLanguage(ctx);
       const collectExpression = '(function () { try { return (' + pageTranslateCollect.toString() + ')(' + JSON.stringify({
@@ -1469,7 +1488,7 @@ window.__ModuleLoader__.load({
         if (cached !== undefined) return { block, text: cached };
         let text = '';
         try {
-          const quoted = await translateTexts([block.text], targetLanguage, signal, view);
+          const quoted = await translateTexts([block.text], targetLanguage, signal, view, runStats);
           text = quoted[0];
         } catch (_error) {
           text = '';
@@ -1496,7 +1515,7 @@ window.__ModuleLoader__.load({
         if (missing.length === 0) return;
         let results;
         try {
-          results = await translateTexts(missing.map((block) => block.text), targetLanguage, signal, view);
+          results = await translateTexts(missing.map((block) => block.text), targetLanguage, signal, view, runStats);
         } catch (_error) {
           // One batch failed; retry its blocks one by one so a single bad
           // fragment cannot fail the whole batch.
@@ -1539,7 +1558,8 @@ window.__ModuleLoader__.load({
         if ((depth === undefined ? 0 : depth) < 2 && appliedCount < total * 0.6) {
           return translatePage(ctx, t, view, signal, (depth === undefined ? 0 : depth) + 1);
         }
-        if (failed === 0) await say(t('status.done', { count: String(done - failed) }));
+        const engineLabel = t('engineName.' + (runStats.engine === '' ? 'route' : runStats.engine));
+        if (failed === 0) await say(t('status.done', { count: String(done - failed), engine: engineLabel }));
         else await say(t('status.partial', { failed: String(failed), total: String(total) }));
         // Keep translating content the page adds later (infinite scroll, lazy
         // cards) until the user restores the original page.
@@ -1675,7 +1695,7 @@ window.__ModuleLoader__.load({
       backgroundViews.add(view);
       try {
         const runId = 'l' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
-        await pageExec(view, 'window.__dshPT.begin(' + JSON.stringify(runId) + ')');
+        await pageExec(view, 'window.__dshPT.begin(' + JSON.stringify(runId) + ', false)');
         if (!liveLoops.has(view) || activeRuns.has(view)) return;
         const targetLanguage = uiLanguage(ctx);
         const expression = '(function () { try { return (' + pageTranslateCollect.toString() + ')(' + JSON.stringify({
