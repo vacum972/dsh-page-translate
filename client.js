@@ -61,6 +61,7 @@ window.__ModuleLoader__.load({
     /** Preferred translation engine: the Host route (model/Google chain) or Bing. */
     const ENGINE_KEY = 'dsh.page-translate.engine';
     const TRANSLATE_ROUTE = '/page-translate/translate';
+    const MODEL_ROUTE = '/page-translate/model';
     const GLOSSARY_KEY = 'dsh.page-translate.glossary';
     const GLOSSARY_OPEN = '\u27E6G';
     const GLOSSARY_CLOSE = '\u27E7';
@@ -140,7 +141,8 @@ window.__ModuleLoader__.load({
       'auto.on': '本站自动翻译：开',
       'auto.off': '本站自动翻译：关',
       'auto.a11y': '切换本站自动翻译',
-      'engine.route': '翻译引擎：模型优先（DeepSeek/Google）',
+      'engine.model': '翻译引擎：主题感知（DeepSeek 模型）',
+      'engine.route': '翻译引擎：Google 网页翻译',
       'engine.bing': '翻译引擎：Bing 直连',
       'engine.a11y': '切换翻译引擎',
       'glossary.row': '术语表：{count} 条',
@@ -171,7 +173,8 @@ window.__ModuleLoader__.load({
       'auto.on': 'Auto-translate this site: on',
       'auto.off': 'Auto-translate this site: off',
       'auto.a11y': 'Toggle automatic translation for this site',
-      'engine.route': 'Engine: model first (DeepSeek/Google)',
+      'engine.model': 'Engine: context-aware (DeepSeek model)',
+      'engine.route': 'Engine: Google web translation',
       'engine.bing': 'Engine: Bing direct',
       'engine.a11y': 'Switch translation engine',
       'glossary.row': 'Glossary: {count} terms',
@@ -1025,18 +1028,20 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** Read the preferred translation engine. */
+    /** Read the preferred translation engine: model (context-aware), route, bing. */
     function readEnginePreference() {
       try {
-        return window.localStorage.getItem(ENGINE_KEY) === 'bing' ? 'bing' : 'route';
+        const stored = window.localStorage.getItem(ENGINE_KEY);
+        if (stored === 'bing' || stored === 'route' || stored === 'model') return stored;
+        return 'model';
       } catch (_error) {
-        return 'route';
+        return 'model';
       }
     }
 
     /** Persist the preferred translation engine. */
     function writeEnginePreference(value) {
-      enginePreference = value === 'bing' ? 'bing' : 'route';
+      enginePreference = value === 'bing' || value === 'route' ? value : 'model';
       try {
         window.localStorage.setItem(ENGINE_KEY, enginePreference);
       } catch (_error) {
@@ -1139,6 +1144,65 @@ window.__ModuleLoader__.load({
       return (result.match(new RegExp(GLOSSARY_OPEN, 'g')) || []).length >= count;
     }
 
+    /** Page text used as translation context, cached for a minute per view. */
+    const pageContexts = new Map();
+
+    function contextExpression() {
+      return '(function () {'
+        + 'var title = document.title || "";'
+        + 'var description = document.querySelector(\'meta[name="description"]\');'
+        + 'var node = document.querySelector("main, [role=\\"main\\"]") || document.body;'
+        + 'var bodyText = node !== null && typeof node.innerText === "string" ? node.innerText : "";'
+        + 'bodyText = bodyText.replace(/\\s+/g, " ");'
+        + 'var meta = description !== null ? (description.getAttribute("content") || "") : "";'
+        + 'return (title + "\\n" + meta + "\\n" + bodyText).slice(0, 1200);'
+        + '})()';
+    }
+
+    async function pageContextFor(view) {
+      const cached = pageContexts.get(view);
+      const now = Date.now();
+      if (cached !== undefined && now - cached.at < 60000) return cached.text;
+      try {
+        const text = await pageExec(view, contextExpression());
+        const value = typeof text === 'string' ? text : '';
+        pageContexts.set(view, { text: value, at: now });
+        return value;
+      } catch (_error) {
+        return '';
+      }
+    }
+
+    /** Translate through the Host model route with the page as context. */
+    async function translateViaModel(texts, targetLanguage, signal, view) {
+      const context = view === null || view === undefined ? '' : await pageContextFor(view);
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      signal.addEventListener('abort', abort, { once: true });
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
+        const response = await fetch(MODEL_ROUTE, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ texts, to: targetLanguage, context, sessionId: activeSessionId }),
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+        if (!response.ok) return null;
+        const payload = await response.json();
+        if (payload === null || typeof payload !== 'object' || !Array.isArray(payload.translations)) return null;
+        if (payload.translations.length !== texts.length) return null;
+        const translated = texts.map((_, index) => (typeof payload.translations[index] === 'string' ? payload.translations[index] : ''));
+        if (translated.every((text) => text === '')) return null;
+        return translated;
+      } catch (_error) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+        signal.removeEventListener('abort', abort);
+      }
+    }
+
     /** Translate through the Host route (DeepSeek / Google / Bing chain). */
     async function translateViaRoute(texts, targetLanguage, signal) {
       if (texts.length === 0) return [];
@@ -1170,20 +1234,26 @@ window.__ModuleLoader__.load({
     }
 
     /** Translate a batch with the selected engine, falling back to Bing. */
-    async function translateTexts(texts, targetLanguage, signal) {
+    async function translateTexts(texts, targetLanguage, signal, view) {
       if (texts.length === 0) return [];
       const glossary = String(targetLanguage).toLowerCase().indexOf('zh') === 0 ? readGlossary() : null;
       const hasGlossary = glossary !== null && Object.keys(glossary).length > 0;
       const masked = hasGlossary ? texts.map((text) => maskGlossary(text, glossary)) : null;
       const requestTexts = masked === null ? texts : masked.map((item) => item.text);
+      const finish = (results) => {
+        if (results === null || !Array.isArray(results) || results.length !== texts.length) return null;
+        if (masked === null) return results;
+        const intact = results.every((result, index) => typeof result !== 'string' || result === '' || markersIntact(requestTexts[index], result));
+        if (!intact) return null;
+        return results.map((result, index) => (typeof result === 'string' ? unmaskGlossary(result, masked[index].tokens) : result));
+      };
+      if (enginePreference === 'model') {
+        const modeled = finish(await translateViaModel(requestTexts, targetLanguage, signal, view));
+        if (modeled !== null) return modeled;
+      }
       if (enginePreference !== 'bing') {
-        const routed = await translateViaRoute(requestTexts, targetLanguage, signal);
-        if (routed !== null) {
-          if (masked === null) return routed;
-          const intact = routed.every((result, index) => typeof result !== 'string' || result === '' || markersIntact(requestTexts[index], result));
-          if (intact) return routed.map((result, index) => (typeof result === 'string' ? unmaskGlossary(result, masked[index].tokens) : result));
-          // The engine dropped the markers: retry this batch without masking.
-        }
+        const routed = finish(await translateViaRoute(requestTexts, targetLanguage, signal));
+        if (routed !== null) return routed;
       }
       return translateBatch(texts, targetLanguage, signal);
     }
@@ -1399,7 +1469,7 @@ window.__ModuleLoader__.load({
         if (cached !== undefined) return { block, text: cached };
         let text = '';
         try {
-          const quoted = await translateTexts([block.text], targetLanguage, signal);
+          const quoted = await translateTexts([block.text], targetLanguage, signal, view);
           text = quoted[0];
         } catch (_error) {
           text = '';
@@ -1426,7 +1496,7 @@ window.__ModuleLoader__.load({
         if (missing.length === 0) return;
         let results;
         try {
-          results = await translateTexts(missing.map((block) => block.text), targetLanguage, signal);
+          results = await translateTexts(missing.map((block) => block.text), targetLanguage, signal, view);
         } catch (_error) {
           // One batch failed; retry its blocks one by one so a single bad
           // fragment cannot fail the whole batch.
@@ -1483,6 +1553,7 @@ window.__ModuleLoader__.load({
     /** Stop any running translation and remove inserted copy. */
     function restorePage(view) {
       stopLive(view);
+      pageContexts.delete(view);
       const controller = activeRuns.get(view);
       if (controller !== undefined) {
         controller.abort();
@@ -1499,6 +1570,7 @@ window.__ModuleLoader__.load({
     /** Start one page translation, replacing any previous run on that view. */
     function startPage(ctx, t, view) {
       stopLive(view);
+      pageContexts.delete(view);
       const previous = activeRuns.get(view);
       if (previous !== undefined) previous.abort();
       const controller = new AbortController();
@@ -1584,7 +1656,7 @@ window.__ModuleLoader__.load({
     async function translateSelection(ctx, t, view, pending) {
       try {
         const targetLanguage = uiLanguage(ctx);
-        const results = await translateTexts([pending.text], targetLanguage, new AbortController().signal);
+        const results = await translateTexts([pending.text], targetLanguage, new AbortController().signal, view);
         const translated = Array.isArray(results) && typeof results[0] === 'string' && results[0] !== ''
           ? results[0]
           : t('selection.failed');
@@ -1630,7 +1702,7 @@ window.__ModuleLoader__.load({
           }
           if (missing.length > 0) {
             try {
-              const translated = await translateTexts(missing.map((block) => block.text), targetLanguage, new AbortController().signal);
+              const translated = await translateTexts(missing.map((block) => block.text), targetLanguage, new AbortController().signal, view);
               for (let index = 0; index < missing.length; index += 1) {
                 const text = typeof translated[index] === 'string' ? translated[index] : '';
                 if (text === '') continue;
@@ -1949,10 +2021,15 @@ window.__ModuleLoader__.load({
           activeSessionId = props.sessionId;
         }
         if (!isBrowser) return null;
-        const label = engine === 'route' ? translate('engine.route') : translate('engine.bing');
+        const label = engine === 'model'
+          ? translate('engine.model')
+          : engine === 'route'
+            ? translate('engine.route')
+            : translate('engine.bing');
         const onClick = () => {
           if (typeof props.dismiss === 'function') props.dismiss();
-          const next = readEnginePreference() === 'route' ? 'bing' : 'route';
+          const current = readEnginePreference();
+          const next = current === 'model' ? 'route' : current === 'route' ? 'bing' : 'model';
           writeEnginePreference(next);
           setEngine(next);
         };
