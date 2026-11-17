@@ -8,6 +8,13 @@
 适合读英文文档、GitHub README / Issue、新闻站点、技术博客——尤其是那些**正文长、导航多**的页面。
 
 <p align="center">
+  <img src="assets/screenshots/demo.gif" width="860" alt="演示：在右侧浏览器打开 Google News，点翻译按钮后页面逐段出现双语译文">
+</p>
+
+> 演示：右侧浏览器打开 Google News → 点翻译按钮 → 页面逐段出现中文译文；标签菜单里可以切换翻译引擎、
+> 开关整站自动翻译。[完整录屏（MP4）](assets/screenshots/demo.mp4)
+
+<p align="center">
   <img src="assets/screenshots/01-bilingual-google-news.png" width="860" alt="Google News Technology 主题页的双语对照：英文标题下插入中文译文">
 </p>
 
@@ -84,10 +91,24 @@ Google / Bing 两条**不花钱、不需要 API Key**；主题感知按 token �
 所以引擎既看不到、也不会翻错这些词。术语表按浏览器 profile 存在
 `localStorage`（`dsh.page-translate.glossary`），并且参与翻译缓存 key——改完重新翻译即生效。
 
+<p align="center">
+  <img src="assets/screenshots/05-glossary-editor.png" width="680" alt="术语表编辑器：每行一条 英文 = 中文，可恢复内置/保存/取消">
+</p>
+
+> 上图：术语表编辑器（菜单「术语表」打开）——每行一条 `英文 = 中文`，可改可加；
+> 内置 30+ 条技术文档常用词，底部有 **恢复内置 / 保存 / 取消**。
+
 ### 划词翻译
 
 在已翻译的页面上选中 2~600 个字符，选区旁会出现红色 **译** 按钮；点一下弹出卡片显示
 原文与译文，点 ×、按 Esc 或下次选择时关闭。划词翻译不修改页面内容，只做浮层展示。
+
+<p align="center">
+  <img src="assets/screenshots/04-selection-translate.png" width="860" alt="划词翻译：选中 Technology 后出现红色译按钮，卡片显示 Technology | 技术">
+</p>
+
+> 上图：选中 `Technology` → 选区上方出现红色「译」按钮 → 点击后弹出卡片，显示原文与译文
+> （`Technology | 技术`），点 × 关闭。
 
 ## 为什么它不太会「翻坏页面」
 
