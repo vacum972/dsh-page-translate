@@ -83,6 +83,13 @@ Desktop 用户也可以在 DSH 的「插件中心」搜索 `@vacum972/dsh-page-t
 Google / Bing 两条**不花钱、不需要 API Key**；主题感知按 token 计费，切回前面两个就回到免费模式。
 切换引擎后，插件会**自动清掉旧译文并用新引擎重翻当前页**——旧译文属于旧引擎，切换不会自动变。
 
+<p align="center">
+  <img src="assets/screenshots/06-theme-aware-comparison.png" width="900" alt="主题感知对比：Bank (geography) 译成 河岸（地理学），Bank 译成 银行">
+</p>
+
+> 实测对比（主题感知引擎）：同一个英文词 `Bank`，地理页面的标题译成「**河岸（地理学）**」，
+> 金融页面译成「**银行**」——模型先读页面标题与开头正文再翻译，而不是逐句直译。
+
 ### 术语表
 
 术语表保证专有名词译法一致：`prompt` → 提示词、`agent` → 智能体、`pull request` → 拉取请求、
