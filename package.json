@@ -1,0 +1,60 @@
+{
+  "name": "@vacum972/dsh-page-translate",
+  "version": "0.1.0",
+  "description": "DSH 右侧边栏浏览器里的沉浸式双语网页翻译：原文保留、译文插入其下，支持整站自动翻译、滚动续翻与引擎切换（Google / Bing）。",
+  "type": "module",
+  "license": "MIT",
+  "private": false,
+  "author": "vacum972",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vacum972/dsh-page-translate.git"
+  },
+  "homepage": "https://github.com/vacum972/dsh-page-translate#readme",
+  "bugs": {
+    "url": "https://github.com/vacum972/dsh-page-translate/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "translation",
+    "translate",
+    "immersive-translate",
+    "bilingual",
+    "browser"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.5 <0.3.0-0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    }
+  }
+}

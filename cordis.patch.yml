@@ -1,0 +1,12 @@
+# Page Translate: one bundle with a Client UI plugin and a small Host route.
+#
+# The Browser tab menu of the right Sidebar gains a "Translate this page"
+# action. By default the Client proxies text through the Host route
+# (`/page-translate/translate`), which calls Google's web translation endpoint
+# and falls back to the Harness translation service; the menu's engine row can
+# switch to the anonymous Microsoft Edge endpoint, which the renderer calls
+# directly. Neither path needs an API key or writes page text into the Session
+# log.
+- insert:
+    - id: page-translate
+      name: '@local/page-translate'
