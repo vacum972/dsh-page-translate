@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@vacum972/dsh-page-translate.svg)](https://www.npmjs.com/package/@vacum972/dsh-page-translate) [![GitHub release](https://img.shields.io/github/v/release/vacum972/dsh-page-translate.svg)](https://github.com/vacum972/dsh-page-translate/releases)
 
-[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/vacum972/dsh-page-translate) [![dshbase 已收录](https://dshbase.com/badges/vacum972-dsh-page-translate.svg)](https://dshbase.com/zh/plugins/vacum972-dsh-page-translate/)
+[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/vacum972/dsh-page-translate)
 
 > **非官方社区插件**：本项目由社区成员独立开发和维护，与 DeepSeek 官方无关；第三方内容未经官方审核，使用前请自行评估风险。
 
